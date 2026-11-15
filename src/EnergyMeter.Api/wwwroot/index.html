@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Energy Meter Readings</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --panel: #ffffff; --text: #1b1f24; --muted: #5d6670; --border: #dde1e6;
+    --accent: #0f6e56; --accent-weak: #e1f5ee; --danger: #a32d2d; --danger-weak: #fcebeb; --bar: #1d9e75;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --panel: #1b1e22; --text: #e6e8eb; --muted: #9aa3ad; --border: #2c3137;
+      --accent: #5dcaa5; --accent-weak: #0b3a2f; --danger: #f09595; --danger-weak: #3b1616; --bar: #5dcaa5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header a { color: var(--accent); font-size: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; min-width: 0; }
+  .wide { grid-column: 1 / -1; }
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+  h3 { font-size: 14px; margin: 0 0 8px; font-weight: 600; color: var(--muted); }
+  ul.list { list-style: none; margin: 0 0 12px; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  ul.list li { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 8px; }
+  ul.list li:last-child { border-bottom: 0; }
+  ul.list li:hover { background: var(--accent-weak); }
+  ul.list li.selected { background: var(--accent-weak); color: var(--accent); font-weight: 600; }
+  ul.list li .id { color: var(--muted); font-size: 13px; font-weight: 400; }
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+  form, .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+  button { font: inherit; border: 1px solid var(--accent); background: var(--accent); color: var(--panel); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--accent); }
+  .msg { margin-top: 8px; font-size: 14px; border-radius: 6px; padding: 6px 10px; }
+  .msg.error { background: var(--danger-weak); color: var(--danger); }
+  .msg.ok { background: var(--accent-weak); color: var(--accent); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  td.num, th.num { text-align: right; }
+  .table-wrap { max-height: 280px; overflow-y: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+  .stat { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .stat .label { font-size: 12px; color: var(--muted); }
+  .stat .value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .value.warn { color: var(--danger); }
+  svg text { fill: var(--muted); font-size: 12px; }
+  svg .bar-value { fill: var(--text); font-weight: 600; }
+  .hint { font-size: 13px; color: var(--muted); }
+  @media (max-width: 800px) { main, .split { grid-template-columns: 1fr; } .stats { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Energy Meter Readings</h1>
+  <a href="/swagger">API docs (Swagger)</a>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Sites</h2>
+    <ul class="list" id="site-list"></ul>
+    <form id="site-form">
+      <label style="flex:1">New site name <input name="siteName" placeholder="e.g. Johannesburg Warehouse"></label>
+      <button type="submit">Add site</button>
+    </form>
+    <div id="site-msg"></div>
+  </section>
+
+  <section class="card">
+    <h2 id="meters-title">Meters</h2>
+    <div id="meters-body"><p class="empty">Select a site to see its meters.</p></div>
+  </section>
+
+  <section class="card wide" id="meter-card" hidden>
+    <h2 id="meter-title">Meter</h2>
+    <div class="split">
+      <div>
+        <h3>Readings</h3>
+        <form id="add-reading-form">
+          <label>Timestamp (UTC) <input name="timestamp" type="datetime-local" step="1" required></label>
+          <label>Cumulative kWh <input name="kwh" type="number" step="0.001" min="0" required style="width:130px"></label>
+          <button type="submit">Add reading</button>
+        </form>
+        <div id="reading-msg"></div>
+        <form id="filter-form" style="margin-top:12px">
+          <label>From (UTC) <input name="from" type="datetime-local"></label>
+          <label>To (UTC) <input name="to" type="datetime-local"></label>
+          <button type="submit" class="secondary">Filter</button>
+          <button type="button" class="secondary" id="clear-filter">Clear</button>
+        </form>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Timestamp (UTC)</th><th class="num">kWh</th></tr></thead>
+            <tbody id="reading-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h3>Consumption summary</h3>
+        <form id="summary-form">
+          <label>From (UTC) <input name="from" type="datetime-local" required></label>
+          <label>To (UTC) <input name="to" type="datetime-local" required></label>
+          <button type="submit">Calculate</button>
+        </form>
+        <div id="summary-msg"></div>
+        <div id="summary-body"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const state = { siteId: null, meterId: null };
+  const $ = id => document.getElementById(id);
+
+  // ---- API helpers -------------------------------------------------------
+  async function api(method, path, body) {
+    const res = await fetch('/api' + path, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const isJson = (res.headers.get('content-type') || '').includes('json');
+    const data = isJson ? await res.json() : null;
+    if (!res.ok) throw new Error(problemText(res.status, data));
+    return data;
+  }
+
+  function problemText(status, p) {
+    if (!p) return `Request failed (${status}).`;
+    if (p.errors) return Object.values(p.errors).flat().join(' ');
+    return `${p.title}${p.detail ? ': ' + p.detail : ''}`;
+  }
+
+  // datetime-local has no zone; the page treats every input as UTC.
+  const toUtcIso = v => !v ? null : (v.length === 16 ? v + ':00' : v) + 'Z';
+  const toInput = iso => iso.slice(0, 16);
+  const fmtTime = iso => iso.replace('T', ' ').replace('Z', '');
+  const fmtKwh = n => Number(n).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 3 });
+
+  function showMsg(el, text, kind) {
+    el.innerHTML = '';
+    if (!text) return;
+    const div = document.createElement('div');
+    div.className = 'msg ' + kind;
+    div.textContent = text;
+    el.appendChild(div);
+  }
+
+  function listItem(text, id, selected, onClick) {
+    const li = document.createElement('li');
+    if (selected) li.className = 'selected';
+    const name = document.createElement('span');
+    name.textContent = text;
+    const tag = document.createElement('span');
+    tag.className = 'id';
+    tag.textContent = '#' + id;
+    li.append(name, tag);
+    li.onclick = onClick;
+    return li;
+  }
+
+  // ---- Sites -------------------------------------------------------------
+  async function loadSites() {
+    const sites = await api('GET', '/sites');
+    const ul = $('site-list');
+    ul.innerHTML = '';
+    if (!sites.length) ul.innerHTML = '<li class="empty">No sites yet.</li>';
+    sites.forEach(s => ul.appendChild(listItem(s.name, s.id, s.id === state.siteId, () => selectSite(s))));
+  }
+
+  $('site-form').onsubmit = async e => {
+    e.preventDefault();
+    const input = e.target.siteName;
+    try {
+      const site = await api('POST', '/sites', { name: input.value });
+      input.value = '';
+      showMsg($('site-msg'), `Created site #${site.id}.`, 'ok');
+      await selectSite(site);
+    } catch (err) { showMsg($('site-msg'), err.message, 'error'); }
+  };
+
+  // ---- Meters ------------------------------------------------------------
+  async function selectSite(site) {
+    state.siteId = site.id;
+    state.meterId = null;
+    $('meter-card').hidden = true;
+    await loadSites();
+    $('meters-title').textContent = `Meters for ${site.name}`;
+    await loadMeters();
+  }
+
+  async function loadMeters() {
+    const meters = await api('GET', `/sites/${state.siteId}/meters`);
+    const body = $('meters-body');
+    body.innerHTML = '';
+    const ul = document.createElement('ul');
+    ul.className = 'list';
+    if (!meters.length) ul.innerHTML = '<li class="empty">No meters on this site yet.</li>';
+    meters.forEach(m => ul.appendChild(listItem(m.serialNumber, m.id, m.id === state.meterId, () => selectMeter(m))));
+
+    const form = document.createElement('form');
+    form.innerHTML = '<label style="flex:1">New meter serial number <input name="serial" placeholder="e.g. MTR-0002"></label><button type="submit">Add meter</button>';
+    const msg = document.createElement('div');
+    form.onsubmit = async e => {
+      e.preventDefault();
+      try {
+        const meter = await api('POST', `/sites/${state.siteId}/meters`, { serialNumber: form.serial.value });
+        await selectMeter(meter);
+        showMsg(msg, `Created meter #${meter.id}.`, 'ok');
+      } catch (err) { showMsg(msg, err.message, 'error'); }
+    };
+    body.append(ul, form, msg);
+  }
+
+  // ---- Readings + summary ------------------------------------------------
+  async function selectMeter(meter) {
+    state.meterId = meter.id;
+    await loadMeters();
+    $('meter-card').hidden = false;
+    $('meter-title').textContent = `Meter ${meter.serialNumber} (#${meter.id})`;
+    ['reading-msg', 'summary-msg', 'summary-body'].forEach(id => $(id).innerHTML = '');
+    $('filter-form').reset();
+
+    const readings = await loadReadings();
+    if (readings.length) {
+      // Default the summary to the full days covered by the readings, then calculate.
+      $('summary-form').from.value = readings[0].timestampUtc.slice(0, 10) + 'T00:00';
+      $('summary-form').to.value = readings[readings.length - 1].timestampUtc.slice(0, 10) + 'T23:59';
+      await loadSummary();
+    }
+  }
+
+  async function loadReadings() {
+    const f = $('filter-form');
+    const params = new URLSearchParams();
+    if (f.from.value) params.set('fromUtc', toUtcIso(f.from.value));
+    if (f.to.value) params.set('toUtc', toUtcIso(f.to.value));
+    const qs = params.toString() ? '?' + params : '';
+
+    const tbody = $('reading-rows');
+    try {
+      const readings = await api('GET', `/meters/${state.meterId}/readings${qs}`);
+      tbody.innerHTML = '';
+      if (!readings.length) tbody.innerHTML = '<tr><td colspan="2" class="empty">No readings.</td></tr>';
+      readings.forEach(r => {
+        const tr = document.createElement('tr');
+        const t = document.createElement('td');
+        t.textContent = fmtTime(r.timestampUtc);
+        const v = document.createElement('td');
+        v.className = 'num';
+        v.textContent = fmtKwh(r.valueKwh);
+        tr.append(t, v);
+        tbody.appendChild(tr);
+      });
+      return readings;
+    } catch (err) {
+      showMsg($('reading-msg'), err.message, 'error');
+      return [];
+    }
+  }
+
+  $('add-reading-form').onsubmit = async e => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      const r = await api('POST', `/meters/${state.meterId}/readings`, {
+        timestampUtc: toUtcIso(f.timestamp.value),
+        valueKwh: f.kwh.valueAsNumber
+      });
+      showMsg($('reading-msg'), `Added reading at ${fmtTime(r.timestampUtc)}.`, 'ok');
+      await loadReadings();
+      if ($('summary-form').from.value && $('summary-form').to.value) await loadSummary();
+    } catch (err) { showMsg($('reading-msg'), err.message, 'error'); }
+  };
+
+  $('filter-form').onsubmit = async e => { e.preventDefault(); await loadReadings(); };
+  $('clear-filter').onclick = async () => { $('filter-form').reset(); await loadReadings(); };
+  $('summary-form').onsubmit = async e => { e.preventDefault(); await loadSummary(); };
+
+  async function loadSummary() {
+    const f = $('summary-form');
+    const qs = new URLSearchParams({ fromUtc: toUtcIso(f.from.value), toUtc: toUtcIso(f.to.value) });
+    showMsg($('summary-msg'), '', '');
+    try {
+      const s = await api('GET', `/meters/${state.meterId}/summary?${qs}`);
+      renderSummary(s);
+    } catch (err) {
+      $('summary-body').innerHTML = '';
+      showMsg($('summary-msg'), err.message, 'error');
+    }
+  }
+
+  function renderSummary(s) {
+    const body = $('summary-body');
+    body.innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="label">Total consumption</div><div class="value">${fmtKwh(s.totalConsumptionKwh)} kWh</div></div>
+        <div class="stat"><div class="label">Readings in range</div><div class="value">${s.readingCount}</div></div>
+        <div class="stat"><div class="label">Decreasing readings</div><div class="value ${s.hasDecreasingReadings ? 'warn' : ''}">${s.hasDecreasingReadings ? 'Yes' : 'No'}</div></div>
+      </div>`;
+    if (s.hasDecreasingReadings) {
+      const p = document.createElement('p');
+      p.className = 'hint';
+      p.textContent = 'A reading went down (e.g. meter reset). Negative differences are left out of the daily figures, so they will not add up to the total.';
+      body.appendChild(p);
+    }
+    body.appendChild(s.daily.length ? dailyChart(s.daily) : Object.assign(document.createElement('p'), {
+      className: 'empty', textContent: 'Fewer than two readings in this range, so there is no daily breakdown.'
+    }));
+  }
+
+  function dailyChart(daily) {
+    const w = 520, h = 220, top = 24, bottom = 36, left = 8;
+    const max = Math.max(...daily.map(d => d.consumptionKwh), 1);
+    const slot = (w - left * 2) / daily.length;
+    const barW = Math.min(64, slot * 0.6);
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Daily consumption in kWh');
+    const add = (tag, attrs, text) => {
+      const el = document.createElementNS(ns, tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      if (text != null) el.textContent = text;
+      svg.appendChild(el);
+    };
+    add('line', { x1: 0, x2: w, y1: h - bottom, y2: h - bottom, stroke: 'var(--border)' });
+    daily.forEach((d, i) => {
+      const bh = (d.consumptionKwh / max) * (h - top - bottom);
+      const cx = left + slot * i + slot / 2;
+      add('rect', { x: cx - barW / 2, y: h - bottom - bh, width: barW, height: Math.max(bh, 1), rx: 4, fill: 'var(--bar)' });
+      add('text', { x: cx, y: h - bottom - bh - 6, 'text-anchor': 'middle', class: 'bar-value' }, fmtKwh(d.consumptionKwh));
+      add('text', { x: cx, y: h - bottom + 18, 'text-anchor': 'middle' }, d.date);
+    });
+    return svg;
+  }
+
+  loadSites().catch(err => showMsg($('site-msg'), err.message, 'error'));
+</script>
+</body>
+</html>

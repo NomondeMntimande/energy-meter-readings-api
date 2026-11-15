@@ -1,0 +1,37 @@
+@api = http://localhost:5080/api
+
+### Create a site
+POST {{api}}/sites
+Content-Type: application/json
+
+{ "name": "Johannesburg Warehouse" }
+
+### List sites
+GET {{api}}/sites
+
+### Create a meter on site 1
+POST {{api}}/sites/1/meters
+Content-Type: application/json
+
+{ "serialNumber": "MTR-0002" }
+
+### List meters for site 1
+GET {{api}}/sites/1/meters
+
+### Add a reading to meter 1
+POST {{api}}/meters/1/readings
+Content-Type: application/json
+
+{ "timestampUtc": "2026-11-03T08:00:00Z", "valueKwh": 12580.4 }
+
+### Same timestamp again -> 409 Conflict
+POST {{api}}/meters/1/readings
+Content-Type: application/json
+
+{ "timestampUtc": "2026-11-03T08:00:00Z", "valueKwh": 12590.0 }
+
+### List readings for meter 1 in a range (both bounds optional, inclusive)
+GET {{api}}/meters/1/readings?fromUtc=2026-11-01T00:00:00Z&toUtc=2026-11-02T23:59:59Z
+
+### Consumption summary
+GET {{api}}/meters/1/summary?fromUtc=2026-11-01T00:00:00Z&toUtc=2026-11-02T23:59:59Z
