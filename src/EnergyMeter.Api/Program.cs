@@ -9,7 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("EnergyDb")
     ?? throw new InvalidOperationException("Connection string 'EnergyDb' is not configured.");
 
-builder.Services.AddDbContext<EnergyDbContext>(options => options.UseSqlServer(connectionString));
+// Retry transient SQL errors (e.g. LocalDB waking up after idling, a brief network drop)
+// instead of surfacing them to the client as a 500.
+builder.Services.AddDbContext<EnergyDbContext>(options =>
+    options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 5)));
 builder.Services.AddScoped<ReadingService>();
 builder.Services.AddSingleton(TimeProvider.System);
 

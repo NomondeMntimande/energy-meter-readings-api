@@ -16,7 +16,8 @@ public static class SiteEndpoints
 
         sites.MapPost("/", CreateSite).WithName(nameof(CreateSite));
         sites.MapGet("/", ListSites).WithName(nameof(ListSites));
-        sites.MapGet("/{siteId:int}", GetSite).WithName(nameof(GetSite));
+        sites.MapGet("/{siteId:int}", GetSite).WithName(nameof(GetSite))
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return api;
     }

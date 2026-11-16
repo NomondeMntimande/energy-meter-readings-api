@@ -13,10 +13,15 @@ public static class ReadingEndpoints
     {
         var meter = api.MapGroup("/meters/{meterId:int}");
 
-        meter.MapPost("/readings", CreateReading).WithTags("Readings").WithName(nameof(CreateReading));
-        meter.MapGet("/readings", ListReadings).WithTags("Readings").WithName(nameof(ListReadings));
-        meter.MapGet("/readings/{readingId:long}", GetReading).WithTags("Readings").WithName(nameof(GetReading));
-        meter.MapGet("/summary", GetSummary).WithTags("Summary").WithName(nameof(GetSummary));
+        meter.MapPost("/readings", CreateReading).WithTags("Readings").WithName(nameof(CreateReading))
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+        meter.MapGet("/readings", ListReadings).WithTags("Readings").WithName(nameof(ListReadings))
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        meter.MapGet("/readings/{readingId:long}", GetReading).WithTags("Readings").WithName(nameof(GetReading))
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        meter.MapGet("/summary", GetSummary).WithTags("Summary").WithName(nameof(GetSummary))
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return api;
     }

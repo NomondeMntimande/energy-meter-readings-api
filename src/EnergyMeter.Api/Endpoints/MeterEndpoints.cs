@@ -14,11 +14,14 @@ public static class MeterEndpoints
     {
         // Meters are created and listed in the context of their site...
         var siteMeters = api.MapGroup("/sites/{siteId:int}/meters").WithTags("Meters");
-        siteMeters.MapPost("/", CreateMeter).WithName(nameof(CreateMeter));
-        siteMeters.MapGet("/", ListMetersForSite).WithName(nameof(ListMetersForSite));
+        siteMeters.MapPost("/", CreateMeter).WithName(nameof(CreateMeter))
+            .ProducesProblem(StatusCodes.Status404NotFound);
+        siteMeters.MapGet("/", ListMetersForSite).WithName(nameof(ListMetersForSite))
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         // ...but addressed directly once they exist, so reading URLs stay short.
-        api.MapGet("/meters/{meterId:int}", GetMeter).WithTags("Meters").WithName(nameof(GetMeter));
+        api.MapGet("/meters/{meterId:int}", GetMeter).WithTags("Meters").WithName(nameof(GetMeter))
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return api;
     }

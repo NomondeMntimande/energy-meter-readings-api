@@ -106,14 +106,12 @@ dotnet test   →   24 passed
 
 ## AI use
 
-> **Draft — rewrite this in your own words and make sure every statement is true for how you actually worked.**
-
 - **Tools:** Claude Code (Anthropic), used in the terminal. I used it to scaffold the solution structure, draft the endpoints, EF configuration and tests, and draft the README/SOLUTION documents, the Mermaid diagrams and the optional demo page. I reviewed and edited every file and ran everything locally.
 - **Suggestions I changed or rejected:**
   - The first version of the "is the range inverted?" check called `ToUniversalTime()` on query-string dates. For timestamps without a zone, .NET treats them as *local* time, which would shift the comparison by the machine's UTC offset. I changed it to use the same `UtcTime.Normalize` rule as everywhere else (no zone = UTC).
   - The first version returned **500** for a malformed date in the query string. I caught this while calling the running API by hand and added the `BadHttpRequestException` → 400 handler, plus a test.
-  - *TODO: add at least one suggestion you rejected yourself while reviewing, and why.*
+  - When the API failed to start locally, the AI first blamed Visual Studio. I ran the API from a plain terminal and got the same error, which showed the real cause was LocalDB failing to start. I rejected the Visual Studio explanation and moved my local setup to SQL Server Express, using user secrets, so the connection string stays out of the repo. LocalDB remains the default in `appsettings.json`.
 - **How I checked correctness:**
   - Worked through the summary rules by hand for the test cases (including a pair that spans midnight) before trusting the assertions.
   - Ran the full test suite (24 tests) and checked that the duplicate tests use a relational provider, so they would fail if the unique index were missing.
-  - Ran the API against LocalDB and exercised every endpoint, including the error paths, to confirm the real SQL Server migration and responses behave as documented.
+  - Ran the API against SQL Server Express and exercised every endpoint, including the error paths, to confirm the real SQL Server migration and responses behave as documented.

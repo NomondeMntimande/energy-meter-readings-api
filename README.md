@@ -39,6 +39,16 @@ dotnet tool install --global dotnet-ef
 dotnet ef database update --project src/EnergyMeter.Api
 ```
 
+### Option: an installed SQL Server (e.g. Express)
+
+If you already run SQL Server as a Windows service, point the API at it with user-secrets. They're stored in your profile, not in the repo, and are used by `dotnet run` and Visual Studio in the Development environment. For `dotnet ef`, add `-- --environment Development` so it reads them too:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:EnergyDb" "Server=.\SQLEXPRESS;Database=EnergyMeterReadings;Trusted_Connection=True;TrustServerCertificate=True" --project src/EnergyMeter.Api
+```
+
+A service also avoids LocalDB's idle auto-shutdown. On some machines LocalDB can fail to restart for a while after shutting down, with "LocalDB instance startup: SQL Server process failed to start". If that happens, run `sqllocaldb stop MSSQLLocalDB -k` followed by `sqllocaldb start MSSQLLocalDB`, or use this option.
+
 ### Option: SQL Server in Docker
 
 ```bash
@@ -143,10 +153,10 @@ GET /api/meters/1/summary?fromUtc=2026-11-01T00:00:00Z&toUtc=2026-11-02T23:59:59
   "fromUtc": "2026-11-01T00:00:00Z",
   "toUtc": "2026-11-02T23:59:59Z",
   "readingCount": 5,
-  "totalConsumptionKwh": 61.2,
+  "totalConsumptionKwh": 61.200,
   "daily": [
-    { "date": "2026-11-01", "consumptionKwh": 30.0 },
-    { "date": "2026-11-02", "consumptionKwh": 31.2 }
+    { "date": "2026-11-01", "consumptionKwh": 30.000 },
+    { "date": "2026-11-02", "consumptionKwh": 31.200 }
   ],
   "hasDecreasingReadings": false
 }
